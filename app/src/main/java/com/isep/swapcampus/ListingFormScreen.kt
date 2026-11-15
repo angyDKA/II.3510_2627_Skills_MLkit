@@ -1,5 +1,8 @@
 package com.isep.swapcampus
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,16 +27,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.isep.shared.domain.CategorySuggester
 import com.isep.shared.domain.entities.Category
 import com.isep.shared.domain.entities.Listing
 import com.isep.shared.domain.entities.label
 import com.isep.shared.repository.AuthRepository
 import com.isep.shared.repository.ListingRepository
+import com.isep.swapcampus.ml.ImageLabelerHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -142,6 +148,35 @@ private fun ListingForm(
     var priceText by rememberSaveable { mutableStateOf(existing?.price?.toString() ?: "") }
     var category by rememberSaveable { mutableStateOf(existing?.category ?: Category.OTHER) }
     var photoUrl by rememberSaveable { mutableStateOf(existing?.photoUrl ?: "") }
+    var suggestionText by remember { mutableStateOf<String?>(null) }
+    var isAnalysing by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) {
+            photoUrl = uri.toString()
+            isAnalysing = true
+            ImageLabelerHelper.labelImage(
+                context = context,
+                uri = uri,
+                onResult = { labels ->
+                    val suggested = CategorySuggester.suggest(labels)
+                    val best = labels.maxByOrNull { it.confidence }
+                    if (suggested == Category.OTHER || best == null) {
+                        suggestionText = "No confident suggestion"
+                    } else {
+                        category = suggested
+                        suggestionText = "Suggested: ${suggested.label()} (${best.text} ${(best.confidence * 100).toInt()}%)"
+                    }
+                    isAnalysing = false
+                },
+                onError = {
+                    suggestionText = "Could not analyse the image"
+                    isAnalysing = false
+                }
+            )
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -184,6 +219,19 @@ private fun ListingForm(
                     label = { Text(item.label()) }
                 )
             }
+        }
+        Button(
+            onClick = {
+                pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            },
+            enabled = !isAnalysing
+        ) {
+            Text("Suggest category from photo")
+        }
+        if (isAnalysing) {
+            Text("Analysing...", style = MaterialTheme.typography.bodySmall)
+        } else {
+            suggestionText?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
         }
         OutlinedTextField(
             value = photoUrl,

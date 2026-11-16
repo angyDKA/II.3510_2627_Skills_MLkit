@@ -6,7 +6,7 @@ plugins {
 android {
     namespace = "com.isep.swapcampus"
     compileSdk {
-        version = release(37)
+        version = release(37) { minorApiLevel = 0 }
     }
 
     defaultConfig {
@@ -30,6 +30,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+    signingConfigs { getByName("debug") { storeFile = rootProject.file("debug.keystore") } }
     buildFeatures {
         compose = true
     }

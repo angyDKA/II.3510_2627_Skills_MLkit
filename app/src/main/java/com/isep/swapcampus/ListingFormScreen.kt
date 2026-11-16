@@ -33,12 +33,14 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.isep.shared.domain.BarcodeText
 import com.isep.shared.domain.CategorySuggester
 import com.isep.shared.domain.entities.Category
 import com.isep.shared.domain.entities.Listing
 import com.isep.shared.domain.entities.label
 import com.isep.shared.repository.AuthRepository
 import com.isep.shared.repository.ListingRepository
+import com.isep.swapcampus.ml.BarcodeHelper
 import com.isep.swapcampus.ml.ImageLabelerHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -150,6 +152,10 @@ private fun ListingForm(
     var photoUrl by rememberSaveable { mutableStateOf(existing?.photoUrl ?: "") }
     var suggestionText by remember { mutableStateOf<String?>(null) }
     var isAnalysing by remember { mutableStateOf(false) }
+    var barcodeValues by remember { mutableStateOf<List<String>>(emptyList()) }
+    var barcodeValue by rememberSaveable { mutableStateOf("") }
+    var barcodeMessage by remember { mutableStateOf<String?>(null) }
+    var isScanning by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -161,7 +167,9 @@ private fun ListingForm(
                 uri = uri,
                 onResult = { labels ->
                     val suggested = CategorySuggester.suggest(labels)
-                    val best = labels.maxByOrNull { it.confidence }
+                    val best = labels
+                        .filter { CategorySuggester.suggest(listOf(it)) == suggested }
+                        .maxByOrNull { it.confidence }
                     if (suggested == Category.OTHER || best == null) {
                         suggestionText = "No confident suggestion"
                     } else {
@@ -173,6 +181,31 @@ private fun ListingForm(
                 onError = {
                     suggestionText = "Could not analyse the image"
                     isAnalysing = false
+                }
+            )
+        }
+    }
+
+    val pickBarcode = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) {
+            barcodeValues = emptyList()
+            barcodeValue = ""
+            barcodeMessage = null
+            isScanning = true
+            BarcodeHelper.scanImage(context, uri,
+                onResult = { values ->
+                    barcodeValues = values
+                    barcodeValue = values.singleOrNull().orEmpty()
+                    barcodeMessage = when {
+                        values.isEmpty() -> "No readable barcode found"
+                        values.size > 1 -> "Several codes found. Choose one."
+                        else -> null
+                    }
+                    isScanning = false
+                },
+                onError = {
+                    barcodeMessage = "Could not read this image. Try another photo."
+                    isScanning = false
                 }
             )
         }
@@ -224,7 +257,7 @@ private fun ListingForm(
             onClick = {
                 pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
             },
-            enabled = !isAnalysing
+            enabled = !isAnalysing && !isScanning
         ) {
             Text("Suggest category from photo")
         }
@@ -232,6 +265,29 @@ private fun ListingForm(
             Text("Analysing...", style = MaterialTheme.typography.bodySmall)
         } else {
             suggestionText?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+        }
+        Button(
+            onClick = { pickBarcode.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+            enabled = !isScanning && !isAnalysing
+        ) { Text("Scan barcode from photo") }
+        if (isScanning) Text("Scanning...", style = MaterialTheme.typography.bodySmall)
+        barcodeMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+        if (barcodeValues.size > 1) {
+            barcodeValues.forEach { value ->
+                TextButton(onClick = { barcodeValue = value }) { Text(value) }
+            }
+        }
+        if (barcodeValue.isNotBlank()) {
+            OutlinedTextField(
+                value = barcodeValue,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Barcode / ISBN") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            TextButton(onClick = { description = BarcodeText.appendToDescription(description, barcodeValue) }) {
+                Text("Add to description")
+            }
         }
         OutlinedTextField(
             value = photoUrl,

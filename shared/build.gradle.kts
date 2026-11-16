@@ -12,7 +12,7 @@ kotlin {
     android {
         namespace = "com.isep.shared"
         compileSdk {
-            version = release(37)
+            version = release(37) { minorApiLevel = 0 }
         }
         minSdk = 24
 

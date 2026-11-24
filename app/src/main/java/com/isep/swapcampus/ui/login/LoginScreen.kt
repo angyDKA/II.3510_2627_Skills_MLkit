@@ -23,7 +23,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.Center
     ) {
-        Text("SwapCampus – Connexion", style = MaterialTheme.typography.headlineSmall)
+        Text("SwapCampus – Sign in", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(16.dp))
         OutlinedTextField(
             value = email, onValueChange = { email = it },
@@ -33,7 +33,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
             value = password, onValueChange = { password = it },
-            label = { Text("Mot de passe") }, singleLine = true,
+            label = { Text("Password") }, singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth()
         )
@@ -41,7 +41,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
         Button(
             onClick = { viewModel.login(email, password) },
             modifier = Modifier.fillMaxWidth()
-        ) { Text("Se connecter") }
+        ) { Text("Sign in") }
 
         error?.let {
             Spacer(Modifier.height(8.dp))
@@ -49,8 +49,8 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
         }
         user?.let {
             Spacer(Modifier.height(8.dp))
-            Text("Connecté : ${it.name}")
-            TextButton(onClick = { viewModel.logout() }) { Text("Se déconnecter") }
+            Text("Signed in: ${it.name}")
+            TextButton(onClick = { viewModel.logout() }) { Text("Sign out") }
         }
     }
 }

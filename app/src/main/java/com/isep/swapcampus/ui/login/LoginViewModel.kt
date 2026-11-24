@@ -14,8 +14,8 @@ class LoginViewModel(private val authRepository: AuthRepository) : ViewModel() {
 
     fun login(email: String, password: String) {
         _error.value = when {
-            email.isBlank() || password.isBlank() -> "Veuillez remplir tous les champs"
-            authRepository.authenticate(email, password) == null -> "Email ou mot de passe incorrect"
+            email.isBlank() || password.isBlank() -> "Please fill in all fields"
+            authRepository.authenticate(email, password) == null -> "Incorrect email or password"
             else -> null
         }
     }

@@ -47,4 +47,7 @@ object CategorySuggester {
             .sortedByDescending { it.confidence }
             .firstNotNullOfOrNull { labelToCategory[it.text.lowercase()] }
             ?: Category.OTHER
+
+
+
 }
